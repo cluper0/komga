@@ -294,7 +294,7 @@ const router = new Router({
 
 router.beforeEach((to, from, next) => {
   if (!['read-book', 'read-epub', 'browse-book', 'browse-series'].includes(<string>to.name)) {
-    document.title = 'Komga'
+    document.title = '柠檬茶图书馆'
   }
 
   if (window.opener !== null &&

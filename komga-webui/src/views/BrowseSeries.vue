@@ -736,7 +736,7 @@ export default Vue.extend({
   watch: {
     series(val) {
       if (this.$_.has(val, 'metadata.title')) {
-        document.title = `Komga - ${val.metadata.title}`
+        document.title = `柠檬茶图书馆 - ${val.metadata.title}`
       }
     },
   },

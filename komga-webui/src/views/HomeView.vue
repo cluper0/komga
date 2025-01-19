@@ -26,7 +26,7 @@
 
         <v-list-item-content>
           <v-list-item-title class="title">
-            Komga
+            柠檬茶图书馆
           </v-list-item-title>
         </v-list-item-content>
 

@@ -1,11 +1,11 @@
 {
-  "name": "Komga",
-  "short_name": "Komga",
+  "name": "柠檬茶图书馆",
+  "short_name": "柠檬茶图书馆",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#08397f",
   "theme_color": "black",
-  "description": "Free and open source comics/mangas media server",
+  "description": "Based on Komga: Free and open source comics/mangas media server",
   "icons": [{
     "src": "favicon-32x32.png",
     "sizes": "32x32",
