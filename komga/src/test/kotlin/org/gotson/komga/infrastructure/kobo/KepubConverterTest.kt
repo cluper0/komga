@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.createFile
 
@@ -72,5 +73,22 @@ class KepubConverterTest(
 
     // then
     assertThat(thrownBy).isInstanceOf(IllegalArgumentException::class.java)
+  }
+
+  @Test
+  fun `given existing book file and dummy kepubify when converting then conversion fails`(
+    @TempDir dir: Path,
+  ) {
+    // given
+    val source = Files.createTempFile(dir, "book", ".epub")
+
+    val book = makeBook("book", url = source.toUri().toURL())
+    val media = Media(mediaType = MediaType.EPUB.type)
+
+    // when
+    val result = kepubConverter.convertEpubToKepub(BookWithMedia(book, media), dir)
+
+    // then
+    assertThat(result).isNull()
   }
 }
