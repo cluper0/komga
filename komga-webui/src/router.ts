@@ -275,7 +275,10 @@ const router = new Router({
 })
 
 router.beforeEach((to, from, next) => {
-  if (!['read-book', 'read-epub', 'browse-book', 'browse-series'].includes(<string>to.name)) {
+  if (!['read-book', 'read-epub', 'browse-book', 'browse-oneshot', 'browse-series', 'browse-libraries',
+    'recommended-libraries', 'browse-collection', 'browse-collections', 'browse-readlist', 'browse-readlists'].includes(<string>to.name)
+  ) {
+
     document.title = '柠檬茶图书馆'
   }
 

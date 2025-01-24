@@ -743,11 +743,17 @@ export default Vue.extend({
           document.title = `柠檬茶图书馆 - ${this.contextName} - ${this.book.metadata.title}`
         }
       } else {
-        document.title = `柠檬茶图书馆 - ${getBookTitleCompact(this.book.metadata.title, this.series.metadata.title)}`
+        document.title = `柠檬茶图书馆 - ${this.bookTitle}`
       }
 
       // parse query params to get incognito mode
       this.incognito = !!(this.$route.query.incognito && this.$route.query.incognito.toString().toLowerCase() === 'true')
+
+      const fontFamiliesInjectables = this.fontFamiliesAdditional.map(x => ({
+        type: 'style',
+        url: new URL(`${urls.origin}api/v1/fonts/resource/${x}/css`, import.meta.url).toString(),
+        fontFamily: x,
+      }))
 
       this.d2Reader = await D2Reader.load({
         url: new URL(bookManifestUrl(this.bookId)),
