@@ -247,6 +247,8 @@
     "locale_name": "English",
     "locale_rtl": "false",
     "lock_all": "Lock all",
+    "media": "Media",
+    "more": "More",
     "n_selected": "{count} selected",
     "nothing_to_show": "Nothing to show",
     "ok": "OK",
@@ -260,19 +262,23 @@
     "password": "Password",
     "pdf": "PDF",
     "pending_tasks": "No pending tasks | 1 pending task | {count} pending tasks",
+    "pinned_libraries": "Pinned Libraries",
     "publisher": "Publisher",
     "read": "Read",
     "read_on": "Read on {date}",
     "readlist": "Read List",
     "readlists": "Read Lists",
     "remember-me": "Remember me",
+    "reorder": "Reorder",
     "required": "Required",
     "reset_filters": "Reset filters",
     "roles": "Roles",
     "save_changes": "Save changes",
     "series": "Series | Series",
+    "settings": "Settings",
     "sidecars": "Sidecars",
     "tags": "Tags",
+    "ui": "User Interface",
     "unavailable": "Unavailable",
     "unlock_all": "Unlock all",
     "url": "URL",
@@ -509,6 +515,11 @@
       "label_ordering": "By default, books in a read list are ordered manually. You can disable manual ordering to sort books by release date.",
       "tab_general": "General",
       "tab_poster": "Poster"
+    },
+    "edit_recommended": {
+      "button_confirm": "Save changes",
+      "button_reset": "Reset to default",
+      "dialog_title": "Edit recommended view"
     },
     "edit_series": {
       "button_cancel": "Cancel",
@@ -816,7 +827,12 @@
     "ERR_1031": "ComicRack CBL Book is missing series or number",
     "ERR_1032": "EPUB file has wrong media type",
     "ERR_1033": "Some entries are missing",
-    "ERR_1034": "An API key with that comment already exists"
+    "ERR_1034": "An API key with that comment already exists",
+    "ERR_1035": "Error while getting EPUB TOC",
+    "ERR_1036": "Error while getting EPUB Landmarks",
+    "ERR_1037": "Error while getting EPUB page list",
+    "ERR_1038": "Error while getting EPUB divina pages",
+    "ERR_1039": "Error while getting EPUB positions"
   },
   "filter": {
     "age_rating": "age rating",
@@ -828,6 +844,7 @@
     "language": "language",
     "library": "library",
     "media_profile": "Media profile",
+    "media_status": "Media status",
     "oneshot": "One-shot",
     "publisher": "publisher",
     "read": "Read",
@@ -857,6 +874,8 @@
   },
   "library_navigation": {
     "browse": "Browse",
+    "browse_books": "Books",
+    "browse_series": "Series",
     "collections": "Collections",
     "readlists": "Read Lists",
     "recommended": "Recommended"
@@ -875,9 +894,6 @@
     "status": "Status",
     "url": "URL"
   },
-  "media_management": {
-    "title": "Media Management"
-  },
   "menu": {
     "add_to_collection": "Add to collection",
     "add_to_readlist": "Add to read list",
@@ -892,10 +908,12 @@
     "empty_trash": "Empty trash",
     "mark_read": "Mark as read",
     "mark_unread": "Mark as unread",
+    "pin": "Pin",
     "refresh_metadata": "Refresh metadata",
     "scan_library_files": "Scan library files",
     "scan_library_files_deep": "Scan library files (deep)",
-    "select_all": "Select all"
+    "select_all": "Select all",
+    "unpin": "Unpin"
   },
   "metrics": {
     "library_books": "Books per library",
@@ -913,6 +931,10 @@
     "home": "Home",
     "libraries": "Libraries",
     "logout": "Log Out"
+  },
+  "no_libraries_pinned": {
+    "title": "No pinned libraries",
+    "subtitle": "You can pin a library from the 3-dots menu"
   },
   "page_not_found": {
     "go_back_to_home_page": "Go back to home page",
@@ -1002,7 +1024,8 @@
     "number": "Number",
     "page_count": "Page count",
     "random": "Random",
-    "release_date": "Release date"
+    "release_date": "Release date",
+    "series": "Series"
   },
   "theme": {
     "dark": "Dark",
@@ -1023,6 +1046,20 @@
   "titles_more": {
     "less": "Less titles",
     "more": "More titles"
+  },
+  "ui_settings": {
+    "general": "General",
+    "label_oauth2_auto_login": "Automatic OAuth2 login",
+    "label_oauth2_hide_login": "Hide login fields if OAuth2 is enabled",
+    "label_poster_blur_unread": "Blur poster for unread books and series",
+    "label_poster_stretch": "Stretch poster to fit card",
+    "label_series_groups": "Series grouping",
+    "section_oauth2": "OAuth2",
+    "series_groups": {
+      "alpha": "Alphabetical",
+      "japanese": "Gojūon (Japanese)"
+    },
+    "tooltip_oauth2_auto_login": "Requires a single OAuth2 provider, and 'hide login fields' enabled"
   },
   "updates": {
     "available": "Updates are available",

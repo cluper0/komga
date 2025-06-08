@@ -1,7 +1,10 @@
 package org.gotson.komga.interfaces.api.rest
 
 import com.github.benmanes.caffeine.cache.Caffeine
+import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.tags.Tag
 import org.gotson.komga.domain.persistence.KomgaUserRepository
+import org.gotson.komga.infrastructure.openapi.OpenApiConfiguration
 import org.gotson.komga.infrastructure.security.KomgaPrincipal
 import org.gotson.komga.interfaces.api.rest.dto.JsonFeedDto
 import org.springframework.http.HttpStatus
@@ -22,6 +25,7 @@ private const val WEBSITE = "https://komga.org"
 
 @RestController
 @RequestMapping("api/v1/announcements", produces = [MediaType.APPLICATION_JSON_VALUE])
+@Tag(name = OpenApiConfiguration.TagNames.ANNOUNCEMENTS)
 class AnnouncementController(
   private val userRepository: KomgaUserRepository,
   webClientBuilder: WebClient.Builder,
@@ -36,6 +40,7 @@ class AnnouncementController(
 
   @GetMapping
   @PreAuthorize("hasRole('ADMIN')")
+  @Operation(summary = "Retrieve announcements")
   fun getAnnouncements(
     @AuthenticationPrincipal principal: KomgaPrincipal,
   ): JsonFeedDto =
@@ -50,6 +55,7 @@ class AnnouncementController(
   @PreAuthorize("hasRole('ADMIN')")
   @PutMapping
   @ResponseStatus(HttpStatus.NO_CONTENT)
+  @Operation(summary = "Mark announcements as read")
   fun markAnnouncementsRead(
     @AuthenticationPrincipal principal: KomgaPrincipal,
     @RequestBody announcementIds: Set<String>,
