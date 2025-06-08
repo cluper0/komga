@@ -2,6 +2,7 @@ package org.gotson.komga.interfaces.api
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.security.SecurityRequirements
 import jakarta.servlet.http.HttpServletRequest
 import org.apache.commons.io.FilenameUtils
 import org.apache.commons.io.IOUtils
@@ -23,6 +24,7 @@ import org.gotson.komga.domain.service.BookAnalyzer
 import org.gotson.komga.domain.service.BookLifecycle
 import org.gotson.komga.infrastructure.image.ImageType
 import org.gotson.komga.infrastructure.mediacontainer.ContentDetector
+import org.gotson.komga.infrastructure.openapi.OpenApiConfiguration
 import org.gotson.komga.infrastructure.security.KomgaPrincipal
 import org.gotson.komga.infrastructure.web.getMediaTypeOrDefault
 import org.gotson.komga.interfaces.api.dto.MEDIATYPE_PROGRESSION_JSON_VALUE
@@ -190,6 +192,7 @@ class CommonBookController(
     }
   } ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
 
+  @Operation(summary = "Get raw book page", description = "Returns the book page in raw format, without content negotiation.", tags = [OpenApiConfiguration.TagNames.BOOK_PAGES])
   @GetMapping(
     value = [
       "api/v1/books/{bookId}/pages/{pageNumber}/raw",
@@ -198,7 +201,7 @@ class CommonBookController(
     produces = [MediaType.ALL_VALUE],
   )
   @PreAuthorize("hasRole('PAGE_STREAMING')")
-  fun getBookPageRaw(
+  fun getBookPageRawByNumber(
     @AuthenticationPrincipal principal: KomgaPrincipal,
     request: ServletWebRequest,
     @PathVariable bookId: String,
@@ -252,6 +255,8 @@ class CommonBookController(
       throw ResponseStatusException(HttpStatus.NOT_FOUND, "File not found, it may have moved")
     }
 
+  @Operation(summary = "Get Epub resource", description = "Return a resource from within an Epub book.", tags = [OpenApiConfiguration.TagNames.BOOK_WEBPUB])
+  @SecurityRequirements
   @GetMapping(
     value = [
       "api/v1/books/{bookId}/resource/{*resource}",
@@ -259,7 +264,7 @@ class CommonBookController(
     ],
     produces = ["*/*"],
   )
-  fun getBookResource(
+  fun getBookEpubResource(
     request: HttpServletRequest,
     @AuthenticationPrincipal principal: KomgaPrincipal?,
     @PathVariable bookId: String,
@@ -306,7 +311,7 @@ class CommonBookController(
       .body(bytes)
   }
 
-  @Operation(description = "Download the book file.")
+  @Operation(summary = "Download book file", description = "Download the book file.", tags = [OpenApiConfiguration.TagNames.BOOKS])
   @GetMapping(
     value = [
       "api/v1/books/{bookId}/file",
@@ -318,7 +323,7 @@ class CommonBookController(
     produces = [MediaType.APPLICATION_OCTET_STREAM_VALUE],
   )
   @PreAuthorize("hasRole('FILE_DOWNLOAD')")
-  fun getBookFile(
+  fun downloadBookFile(
     @AuthenticationPrincipal principal: KomgaPrincipal,
     @PathVariable bookId: String,
   ): ResponseEntity<StreamingResponseBody> = getBookFileInternal(principal, bookId)
@@ -360,6 +365,7 @@ class CommonBookController(
       }
     } ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
 
+  @Operation(summary = "Get book progression", description = "The Progression API is a proposed standard for OPDS 2 and Readium. It is used by the Epub Reader.", tags = [OpenApiConfiguration.TagNames.BOOK_WEBPUB])
   @GetMapping(
     value = [
       "api/v1/books/{bookId}/progression",
@@ -367,7 +373,7 @@ class CommonBookController(
     ],
     produces = [MEDIATYPE_PROGRESSION_JSON_VALUE],
   )
-  fun getProgression(
+  fun getBookProgression(
     @AuthenticationPrincipal principal: KomgaPrincipal,
     @PathVariable bookId: String,
   ): ResponseEntity<R2Progression> =
@@ -379,6 +385,7 @@ class CommonBookController(
       } ?: ResponseEntity.noContent().build()
     } ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
 
+  @Operation(summary = "Mark book progression", description = "The Progression API is a proposed standard for OPDS 2 and Readium. It is used by the Epub Reader.", tags = [OpenApiConfiguration.TagNames.BOOK_WEBPUB])
   @PutMapping(
     value = [
       "api/v1/books/{bookId}/progression",
@@ -386,7 +393,7 @@ class CommonBookController(
     ],
   )
   @ResponseStatus(HttpStatus.NO_CONTENT)
-  fun markProgression(
+  fun updateBookProgression(
     @AuthenticationPrincipal principal: KomgaPrincipal,
     @PathVariable bookId: String,
     @RequestBody progression: R2Progression,

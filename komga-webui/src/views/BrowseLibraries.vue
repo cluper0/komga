@@ -2,12 +2,11 @@
   <div :style="$vuetify.breakpoint.xs ? 'margin-bottom: 56px' : undefined">
     <toolbar-sticky v-if="selectedSeries.length === 0">
       <!--   Action menu   -->
-      <library-actions-menu v-if="library"
+      <library-actions-menu v-if="isAdmin && library"
                             :library="library"/>
-      <libraries-actions-menu v-else/>
 
       <v-toolbar-title>
-        <span>{{ library ? library.name : $t('common.all_libraries') }}</span>
+        <span>{{ toolbarTitle }}</span>
         <v-chip label class="mx-4" v-if="totalElements">
           <span style="font-size: 1.1rem">{{ totalElements }}</span>
         </v-chip>
@@ -75,7 +74,7 @@
     <v-container fluid>
       <alphabetical-navigation
         class="text-center"
-        :symbols="alphabeticalNavigation"
+        :symbols="seriesGroupingKeys"
         :selected="selectedSymbol"
         :group-count="seriesGroups"
         @clicked="filterByStarting"
@@ -168,10 +167,12 @@ import {ItemContext} from '@/types/items'
 import {
   BookSearch,
   SearchConditionAgeRating,
-  SearchConditionAllOfSeries, SearchConditionAnyOfBook,
+  SearchConditionAllOfSeries,
+  SearchConditionAnyOfBook,
   SearchConditionAnyOfSeries,
   SearchConditionAuthor,
   SearchConditionComplete,
+  SearchConditionDeleted,
   SearchConditionGenre,
   SearchConditionLanguage,
   SearchConditionLibraryId,
@@ -208,12 +209,11 @@ import {
   FiltersOptions,
   NameValue,
 } from '@/types/filter'
-import LibrariesActionsMenu from '@/components/menus/LibrariesActionsMenu.vue'
+import {CLIENT_SETTING, ClientSettingsSeriesGroup, SERIES_GROUP_ALPHA} from '@/types/komga-clientsettings'
 
 export default Vue.extend({
   name: 'BrowseLibraries',
   components: {
-    LibrariesActionsMenu,
     AlphabeticalNavigation,
     LibraryActionsMenu,
     EmptyState,
@@ -229,10 +229,8 @@ export default Vue.extend({
   },
   data: function () {
     return {
-      library: undefined as LibraryDto | undefined,
       series: [] as SeriesDto[],
       seriesGroups: [] as GroupCountDto[],
-      alphabeticalNavigation: ['ALL', '#', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'],
       selectedSymbol: 'ALL',
       selectedSeries: [] as SeriesDto[],
       page: 1,
@@ -264,6 +262,14 @@ export default Vue.extend({
     libraryId: {
       type: String,
       default: LIBRARIES_ALL,
+    },
+  },
+  watch: {
+    '$store.getters.getLibrariesPinned': {
+      handler(val) {
+        if (this.libraryId === LIBRARIES_ALL)
+          this.loadLibrary(this.libraryId)
+      },
     },
   },
   created() {
@@ -319,14 +325,42 @@ export default Vue.extend({
     next()
   },
   computed: {
+    seriesGrouping(): Record<string, string[]> {
+      let s: Record<string, string[]>
+      try {
+        s = (JSON.parse(this.$store.getters.getClientSettings[CLIENT_SETTING.WEBUI_SERIES_GROUPS].value) as ClientSettingsSeriesGroup).groups
+      } catch (_) {
+        s = SERIES_GROUP_ALPHA.groups
+      }
+      return s
+    },
+    seriesGroupingKeys(): string[] {
+      return ['ALL', '#', ...this.$_.keys(this.seriesGrouping)]
+    },
+    seriesGroupingValues(): string[] {
+      return this.$_(this.seriesGrouping).values().flatten().map(this.$_.lowerCase).toArray() as unknown as string[]
+    },
+    library(): LibraryDto | undefined {
+      return this.getLibraryLazy(this.libraryId)
+    },
+    requestLibraryIds(): string[] {
+      return this.libraryId !== LIBRARIES_ALL ? [this.libraryId] : this.$store.getters.getLibrariesPinned.map((it: LibraryDto) => it.id)
+    },
+    toolbarTitle(): string {
+      if (this.library) return this.library.name
+      else if (this.$store.getters.getLibrariesPinned.length > 0) return this.$t('common.pinned_libraries').toString()
+      else return this.$t('common.all_libraries').toString()
+    },
     symbolCondition(): SearchConditionSeries | undefined {
       if (this.selectedSymbol === 'ALL') return undefined
       if (this.selectedSymbol === '#') return new SearchConditionAllOfSeries(
-        this.alphabeticalNavigation
-          .filter(it => it !== 'ALL' && it !== '#')
+        this.seriesGroupingValues
           .map(it => new SearchConditionTitleSort(new SearchOperatorDoesNotBeginWith(it))),
       )
-      return new SearchConditionTitleSort(new SearchOperatorBeginsWith(this.selectedSymbol))
+      return new SearchConditionAnyOfSeries(
+        this.seriesGrouping[this.selectedSymbol]
+          .map(it => new SearchConditionTitleSort(new SearchOperatorBeginsWith(it))),
+      )
     },
     itemContext(): ItemContext[] {
       if (this.sortActive.key === 'booksMetadata.releaseDate') return [ItemContext.RELEASE_DATE]
@@ -381,6 +415,15 @@ export default Vue.extend({
             nValue: new SearchConditionOneShot(new SearchOperatorIsFalse()),
           }],
         },
+        deleted: {
+          values: [
+            {
+              name: this.$t('common.unavailable').toString(),
+              value: new SearchConditionDeleted(new SearchOperatorIsTrue()),
+              nValue: new SearchConditionDeleted(new SearchOperatorIsFalse()),
+            },
+          ],
+        },
       } as FiltersOptions
     },
     filterOptionsPanel(): FiltersOptions {
@@ -392,10 +435,52 @@ export default Vue.extend({
             nValue: new SearchConditionSeriesStatus(new SearchOperatorIsNot(x)),
           } as NameValue)),
         },
-        genre: {name: this.$t('filter.genre').toString(), values: this.filterOptions.genre, anyAllSelector: true},
-        tag: {name: this.$t('filter.tag').toString(), values: this.filterOptions.tag, anyAllSelector: true},
-        publisher: {name: this.$t('filter.publisher').toString(), values: this.filterOptions.publisher},
-        language: {name: this.$t('filter.language').toString(), values: this.filterOptions.language},
+        genre: {
+          name: this.$t('filter.genre').toString(),
+          values: [
+            {
+              name: this.$t('filter.any').toString(),
+              value: new SearchConditionGenre(new SearchOperatorIsNotNull()),
+              nValue: new SearchConditionGenre(new SearchOperatorIsNull()),
+            },
+            ...this.filterOptions.genre,
+          ],
+          anyAllSelector: true,
+        },
+        tag: {
+          name: this.$t('filter.tag').toString(),
+          values: [
+            {
+              name: this.$t('filter.any').toString(),
+              value: new SearchConditionTag(new SearchOperatorIsNotNull()),
+              nValue: new SearchConditionTag(new SearchOperatorIsNull()),
+            },
+            ...this.filterOptions.tag,
+          ],
+          anyAllSelector: true,
+        },
+        publisher: {
+          name: this.$t('filter.publisher').toString(),
+          values: [
+            {
+              name: this.$t('filter.any').toString(),
+              value: new SearchConditionPublisher(new SearchOperatorIsNot('')),
+              nValue: new SearchConditionPublisher(new SearchOperatorIs('')),
+            },
+            ...this.filterOptions.publisher,
+          ],
+        },
+        language: {
+          name: this.$t('filter.language').toString(),
+          values: [
+            {
+              name: this.$t('filter.any').toString(),
+              value: new SearchConditionLanguage(new SearchOperatorIsNot('')),
+              nValue: new SearchConditionLanguage(new SearchOperatorIs('')),
+            },
+            ...this.filterOptions.language,
+          ],
+        },
         ageRating: {
           name: this.$t('filter.age_rating').toString(),
           values: this.filterOptions.ageRating.map((x: NameValue) => ({
@@ -405,13 +490,23 @@ export default Vue.extend({
             } as NameValue),
           ),
         },
-        releaseDate: {name: this.$t('filter.release_date').toString(), values: this.filterOptions.releaseDate},
+        releaseDate: {
+          name: this.$t('filter.release_date').toString(),
+          values: [
+            {
+              name: this.$t('filter.any').toString(),
+              value: new SearchConditionReleaseDate(new SearchOperatorIsNotNull()),
+              nValue: new SearchConditionReleaseDate(new SearchOperatorIsNull()),
+            },
+            ...this.filterOptions.releaseDate,
+          ],
+        },
       } as FiltersOptions
       authorRoles.forEach((role: string) => {
         r[role] = {
           name: this.$t(`author_roles.${role}`).toString(),
           search: async search => {
-            return (await this.$komgaReferential.getAuthors(search, role, this.libraryId !== LIBRARIES_ALL ? this.libraryId : undefined))
+            return (await this.$komgaReferential.getAuthors(search, role, this.requestLibraryIds))
               .content
               .map(x => x.name)
           },
@@ -423,7 +518,17 @@ export default Vue.extend({
           anyAllSelector: true,
         }
       })
-      r['sharingLabel'] = {name: this.$t('filter.sharing_label').toString(), values: this.filterOptions.sharingLabel}
+      r['sharingLabel'] = {
+        name: this.$t('filter.sharing_label').toString(),
+        values: [
+          {
+            name: this.$t('filter.any').toString(),
+            value: new SearchConditionSharingLabel(new SearchOperatorIsNotNull()),
+            nValue: new SearchConditionSharingLabel(new SearchOperatorIsNull()),
+          },
+          ...this.filterOptions.sharingLabel,
+        ],
+      }
       return r
     },
     isAdmin(): boolean {
@@ -471,17 +576,17 @@ export default Vue.extend({
         this.$store.getters.getLibrarySort(route.params.libraryId) ||
         this.$_.clone(this.sortDefault)
 
-      const requestLibraryId = libraryId !== LIBRARIES_ALL ? libraryId : undefined
+      const requestLibraryIds = libraryId !== LIBRARIES_ALL ? [libraryId] : this.$store.getters.getLibrariesPinned.map((it: LibraryDto) => it.id)
 
       // load dynamic filters
       const [genres, tags, publishers, languages, ageRatings, releaseDates, sharingLabels] = await Promise.all([
-        this.$komgaReferential.getGenres(requestLibraryId),
-        this.$komgaReferential.getSeriesAndBookTags(requestLibraryId),
-        this.$komgaReferential.getPublishers(requestLibraryId),
-        this.$komgaReferential.getLanguages(requestLibraryId),
-        this.$komgaReferential.getAgeRatings(requestLibraryId),
-        this.$komgaReferential.getSeriesReleaseDates(requestLibraryId),
-        this.$komgaReferential.getSharingLabels(requestLibraryId),
+        this.$komgaReferential.getGenres(requestLibraryIds),
+        this.$komgaReferential.getSeriesAndBookTags(requestLibraryIds),
+        this.$komgaReferential.getPublishers(requestLibraryIds),
+        this.$komgaReferential.getLanguages(requestLibraryIds),
+        this.$komgaReferential.getAgeRatings(requestLibraryIds),
+        this.$komgaReferential.getSeriesReleaseDates(requestLibraryIds),
+        this.$komgaReferential.getSharingLabels(requestLibraryIds),
       ])
       this.$set(this.filterOptions, 'genre', toNameValueCondition(genres, x => new SearchConditionGenre(new SearchOperatorIs(x)), x => new SearchConditionGenre(new SearchOperatorIsNot(x))))
       this.$set(this.filterOptions, 'tag', toNameValueCondition(tags, x => new SearchConditionTag(new SearchOperatorIs(x)), x => new SearchConditionTag(new SearchOperatorIsNot(x))))
@@ -499,14 +604,14 @@ export default Vue.extend({
         x => {
           const year = Number.parseInt(x)
           return year ? new SearchConditionAllOfSeries([
-            new SearchConditionReleaseDate(new SearchOperatorAfter(`${year - 1}-12-31T12:00:00Z`)),
-            new SearchConditionReleaseDate(new SearchOperatorBefore(`${year + 1}-01-01T12:00:00Z`)),
+            new SearchConditionReleaseDate(new SearchOperatorAfter(`${(year - 1).toString().padStart(4, '0')}-12-31T12:00:00Z`)),
+            new SearchConditionReleaseDate(new SearchOperatorBefore(`${(year + 1).toString().padStart(4, '0')}-01-01T12:00:00Z`)),
           ]) : new SearchConditionAllOfSeries([])
         },
         year =>
           new SearchConditionAnyOfSeries([
-              new SearchConditionReleaseDate(new SearchOperatorAfter(`${year}-12-31T12:00:00Z`)),
-              new SearchConditionReleaseDate(new SearchOperatorBefore(`${year}-01-01T12:00:00Z`)),
+            new SearchConditionReleaseDate(new SearchOperatorAfter(`${(year).toString().padStart(4, '0')}-12-31T12:00:00Z`)),
+            new SearchConditionReleaseDate(new SearchOperatorBefore(`${(year).toString().padStart(4, '0')}-01-01T12:00:00Z`)),
               new SearchConditionReleaseDate(new SearchOperatorIsNull()),
             ],
           ),
@@ -515,7 +620,7 @@ export default Vue.extend({
 
       // get filter from query params or local storage and validate with available filter values
       let activeFilters: any
-      if (route.query.status || route.query.readStatus || route.query.genre || route.query.tag || route.query.language || route.query.ageRating || route.query.publisher || authorRoles.some(role => role in route.query) || route.query.complete || route.query.oneshot || route.query.sharingLabel) {
+      if (route.query.status || route.query.readStatus || route.query.genre || route.query.tag || route.query.language || route.query.ageRating || route.query.publisher || authorRoles.some(role => role in route.query) || route.query.complete || route.query.oneshot || route.query.sharingLabel || route.query.deleted) {
         activeFilters = {
           status: route.query.status || [],
           readStatus: route.query.readStatus || [],
@@ -528,6 +633,7 @@ export default Vue.extend({
           complete: route.query.complete || [],
           oneshot: route.query.oneshot || [],
           sharingLabel: route.query.sharingLabel || [],
+          deleted: route.query.deleted || [],
         }
         authorRoles.forEach((role: string) => {
           activeFilters[role] = route.query[role] || []
@@ -566,6 +672,7 @@ export default Vue.extend({
         complete: this.$_.intersectionWith(filters.complete, extractFilterOptionsValues(this.filterOptionsList.complete.values), objIsEqual) || [],
         oneshot: this.$_.intersectionWith(filters.oneshot, extractFilterOptionsValues(this.filterOptionsList.oneshot.values), objIsEqual) || [],
         sharingLabel: this.$_.intersectionWith(filters.sharingLabel, extractFilterOptionsValues(this.filterOptions.sharingLabel), objIsEqual) || [],
+        deleted: this.$_.intersectionWith(filters.deleted, extractFilterOptionsValues(this.filterOptionsList.deleted.values), objIsEqual) || [],
       } as any
       authorRoles.forEach((role: string) => {
         validFilter[role] = filters[role] || []
@@ -633,7 +740,6 @@ export default Vue.extend({
       if (this.series.some(b => b.id === event.seriesId)) this.reloadPage()
     },
     async loadLibrary(libraryId: string) {
-      this.library = this.getLibraryLazy(libraryId)
       if (this.library != undefined) document.title = `Komga - ${this.library.name}`
 
       await this.loadPage(libraryId, this.page, this.sortActive, this.symbolCondition)
@@ -671,6 +777,11 @@ export default Vue.extend({
 
       const conditions = [] as SearchConditionSeries[]
       if (libraryId !== LIBRARIES_ALL) conditions.push(new SearchConditionLibraryId(new SearchOperatorIs(libraryId)))
+      else {
+        conditions.push(new SearchConditionAnyOfSeries(
+          this.$store.getters.getLibrariesPinned.map((it: LibraryDto) => new SearchConditionLibraryId(new SearchOperatorIs(it.id))),
+        ))
+      }
       if (this.filters.status && this.filters.status.length > 0) this.filtersMode?.status?.allOf ? conditions.push(new SearchConditionAllOfSeries(this.filters.status)) : conditions.push(new SearchConditionAnyOfSeries(this.filters.status))
       if (this.filters.readStatus && this.filters.readStatus.length > 0) conditions.push(new SearchConditionAnyOfSeries(this.filters.readStatus))
       if (this.filters.genre && this.filters.genre.length > 0) this.filtersMode?.genre?.allOf ? conditions.push(new SearchConditionAllOfSeries(this.filters.genre)) : conditions.push(new SearchConditionAnyOfSeries(this.filters.genre))
@@ -682,6 +793,7 @@ export default Vue.extend({
       if (this.filters.sharingLabel && this.filters.sharingLabel.length > 0) this.filtersMode?.sharingLabel?.allOf ? conditions.push(new SearchConditionAllOfSeries(this.filters.sharingLabel)) : conditions.push(new SearchConditionAnyOfSeries(this.filters.sharingLabel))
       if (this.filters.complete && this.filters.complete.length > 0) conditions.push(...this.filters.complete)
       if (this.filters.oneshot && this.filters.oneshot.length > 0) conditions.push(...this.filters.oneshot)
+      if (this.filters.deleted && this.filters.deleted.length > 0) conditions.push(...this.filters.deleted)
       authorRoles.forEach((role: string) => {
         if (role in this.filters) {
           const authorConditions = this.filters[role].map((name: string) => {
@@ -718,11 +830,11 @@ export default Vue.extend({
         condition: new SearchConditionAllOfSeries(groupConditions),
       } as SeriesSearch)
       const nonAlpha = seriesGroups
-        .filter((g) => !(/[a-zA-Z]/).test(g.group))
+        .filter((g) => !this.seriesGroupingValues.includes(g.group))
         .reduce((a, b) => a + b.count, 0)
       const all = seriesGroups.reduce((a, b) => a + b.count, 0)
       this.seriesGroups = [
-        ...seriesGroups.filter((g) => (/[a-zA-Z]/).test(g.group)),
+        ...seriesGroups.filter((g) => this.seriesGroupingValues.includes(g.group)),
         {group: '#', count: nonAlpha} as GroupCountDto,
         {group: 'ALL', count: all} as GroupCountDto,
       ]

@@ -53,14 +53,14 @@ jobs:
         run: brew install caarlos0/tap/svu
       - name: Compute next version for release
         run: |
-          echo "VERSION_NEXT=`svu --pattern="[0-9]*" --strip-prefix ${{ inputs.bump }}`" | tee -a $GITHUB_ENV
-          echo "VERSION_NEXT_SUFFIX=`svu --pattern="[0-9]*" --strip-prefix ${{ inputs.bump }}`" | tee -a $GITHUB_ENV
+          echo "VERSION_NEXT=`svu ${{ inputs.bump }}`" | tee -a $GITHUB_ENV
+          echo "VERSION_NEXT_SUFFIX=`svu ${{ inputs.bump }}`" | tee -a $GITHUB_ENV
       - name: Set Versions
         id: versions
         run: |
-          echo "version_current=`svu --pattern="[0-9]*" --strip-prefix current`" >> $GITHUB_OUTPUT
+          echo "version_current=`svu current`" >> $GITHUB_OUTPUT
           echo "version_next=${{ env.VERSION_NEXT_SUFFIX }}" >> $GITHUB_OUTPUT
-          [[ `svu --pattern="[0-9]*" --strip-prefix current` != ${{ env.VERSION_NEXT }} ]] && echo "should_release=true" >> $GITHUB_OUTPUT || echo
+          [[ `svu current` != ${{ env.VERSION_NEXT }} ]] && echo "should_release=true" >> $GITHUB_OUTPUT || echo
 
   release:
     name: Release
@@ -167,7 +167,7 @@ jobs:
           echo $APPLE_PRIVATE_KEY | base64 --decode > ./secret/apple_private_key.p8
 
       - name: Conveyor make copied-site
-        uses: hydraulic-software/conveyor/actions/build@v16.0
+        uses: hydraulic-software/conveyor/actions/build@v18.1
         if: inputs.conveyor-copied-site
         with:
           command: --cache-limit=2.0 -f conveyor.ci.conf make copied-site -o ./output/site
@@ -201,20 +201,6 @@ jobs:
             build/jreleaser/trace.log
             build/jreleaser/output.properties
 
-      - name: JReleaser Announce
-        if: inputs.github_release
-        run: ./gradlew jreleaserAnnounce
-        env:
-          JRELEASER_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: JReleaser Announce output
-        if: always() && inputs.github_release
-        uses: actions/upload-artifact@v4
-        with:
-          name: jreleaser-announce
-          path: |
-            build/jreleaser/trace.log
-            build/jreleaser/output.properties
-
       # Sometimes the workflow will fail because it's out of disk space
       - name: Cleanup Conveyor output
         run: rm -fr ./output
@@ -234,7 +220,7 @@ jobs:
             build/jreleaser/output.properties
 
       - name: Conveyor - publish to Microsoft Store
-        uses: hydraulic-software/conveyor/actions/build@v16.0
+        uses: hydraulic-software/conveyor/actions/build@v18.1
         if: inputs.msstore_release
         with:
           command: --cache-limit=2.0 -f conveyor.msstore.ci.conf make ms-store-release -o ./output/msstore
@@ -254,3 +240,14 @@ jobs:
         with:
           name: conveyor-ms-store-release
           path: ~/.cache/hydraulic/conveyor/logs/log.latest.txt
+
+  dispatch:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repository Dispatch
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.REPO_ACCESS_TOKEN }}
+          repository: gotson/komga-website
+          event-type: komga-release

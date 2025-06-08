@@ -1,6 +1,7 @@
 package org.gotson.komga.interfaces.api.rest
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
@@ -24,9 +25,10 @@ import org.gotson.komga.domain.service.SeriesCollectionLifecycle
 import org.gotson.komga.infrastructure.image.ImageAnalyzer
 import org.gotson.komga.infrastructure.jooq.UnpagedSorted
 import org.gotson.komga.infrastructure.mediacontainer.ContentDetector
+import org.gotson.komga.infrastructure.openapi.AuthorsAsQueryParam
+import org.gotson.komga.infrastructure.openapi.OpenApiConfiguration
+import org.gotson.komga.infrastructure.openapi.PageableWithoutSortAsQueryParam
 import org.gotson.komga.infrastructure.security.KomgaPrincipal
-import org.gotson.komga.infrastructure.swagger.AuthorsAsQueryParam
-import org.gotson.komga.infrastructure.swagger.PageableWithoutSortAsQueryParam
 import org.gotson.komga.infrastructure.web.Authors
 import org.gotson.komga.interfaces.api.persistence.SeriesDtoRepository
 import org.gotson.komga.interfaces.api.rest.dto.CollectionCreationDto
@@ -77,9 +79,10 @@ class SeriesCollectionController(
   private val thumbnailSeriesCollectionRepository: ThumbnailSeriesCollectionRepository,
   private val eventPublisher: ApplicationEventPublisher,
 ) {
+  @Operation(summary = "List collections", tags = [OpenApiConfiguration.TagNames.COLLECTIONS])
   @PageableWithoutSortAsQueryParam
   @GetMapping
-  fun getAll(
+  fun getCollections(
     @AuthenticationPrincipal principal: KomgaPrincipal,
     @RequestParam(name = "search", required = false) searchTerm: String?,
     @RequestParam(name = "library_id", required = false) libraryIds: List<String>?,
@@ -107,8 +110,9 @@ class SeriesCollectionController(
       .map { it.toDto() }
   }
 
+  @Operation(summary = "Get collection details", tags = [OpenApiConfiguration.TagNames.COLLECTIONS])
   @GetMapping("{id}")
-  fun getOne(
+  fun getCollectionById(
     @AuthenticationPrincipal principal: KomgaPrincipal,
     @PathVariable id: String,
   ): CollectionDto =
@@ -117,6 +121,7 @@ class SeriesCollectionController(
       ?.toDto()
       ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
 
+  @Operation(summary = "Get collection's poster image", tags = [OpenApiConfiguration.TagNames.COLLECTION_POSTER])
   @ApiResponse(content = [Content(schema = Schema(type = "string", format = "binary"))])
   @GetMapping(value = ["{id}/thumbnail"], produces = [MediaType.IMAGE_JPEG_VALUE])
   fun getCollectionThumbnail(
@@ -131,6 +136,7 @@ class SeriesCollectionController(
     } ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
   }
 
+  @Operation(summary = "Get collection poster image", tags = [OpenApiConfiguration.TagNames.COLLECTION_POSTER])
   @ApiResponse(content = [Content(schema = Schema(type = "string", format = "binary"))])
   @GetMapping(value = ["{id}/thumbnails/{thumbnailId}"], produces = [MediaType.IMAGE_JPEG_VALUE])
   fun getCollectionThumbnailById(
@@ -144,6 +150,7 @@ class SeriesCollectionController(
     } ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
   }
 
+  @Operation(summary = "List collection's posters", tags = [OpenApiConfiguration.TagNames.COLLECTION_POSTER])
   @GetMapping(value = ["{id}/thumbnails"], produces = [MediaType.APPLICATION_JSON_VALUE])
   fun getCollectionThumbnails(
     @AuthenticationPrincipal principal: KomgaPrincipal,
@@ -154,6 +161,7 @@ class SeriesCollectionController(
     } ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
   }
 
+  @Operation(summary = "Add collection poster", tags = [OpenApiConfiguration.TagNames.COLLECTION_POSTER])
   @PostMapping(value = ["{id}/thumbnails"], consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
   @PreAuthorize("hasRole('ADMIN')")
   fun addUserUploadedCollectionThumbnail(
@@ -183,10 +191,11 @@ class SeriesCollectionController(
     } ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
   }
 
+  @Operation(summary = "Mark collection poster as selected", tags = [OpenApiConfiguration.TagNames.COLLECTION_POSTER])
   @PutMapping("{id}/thumbnails/{thumbnailId}/selected")
   @PreAuthorize("hasRole('ADMIN')")
   @ResponseStatus(HttpStatus.ACCEPTED)
-  fun markSelectedCollectionThumbnail(
+  fun markCollectionThumbnailSelected(
     @AuthenticationPrincipal principal: KomgaPrincipal,
     @PathVariable(name = "id") id: String,
     @PathVariable(name = "thumbnailId") thumbnailId: String,
@@ -199,6 +208,7 @@ class SeriesCollectionController(
     } ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
   }
 
+  @Operation(summary = "Delete collection poster", tags = [OpenApiConfiguration.TagNames.COLLECTION_POSTER])
   @DeleteMapping("{id}/thumbnails/{thumbnailId}")
   @PreAuthorize("hasRole('ADMIN')")
   @ResponseStatus(HttpStatus.ACCEPTED)
@@ -214,9 +224,10 @@ class SeriesCollectionController(
     } ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
   }
 
+  @Operation(summary = "Create collection", tags = [OpenApiConfiguration.TagNames.COLLECTIONS])
   @PostMapping
   @PreAuthorize("hasRole('ADMIN')")
-  fun addOne(
+  fun createCollection(
     @Valid @RequestBody
     collection: CollectionCreationDto,
   ): CollectionDto =
@@ -233,10 +244,11 @@ class SeriesCollectionController(
       throw ResponseStatusException(HttpStatus.BAD_REQUEST, e.message)
     }
 
+  @Operation(summary = "Update collection", tags = [OpenApiConfiguration.TagNames.COLLECTIONS])
   @PatchMapping("{id}")
   @PreAuthorize("hasRole('ADMIN')")
   @ResponseStatus(HttpStatus.NO_CONTENT)
-  fun updateOne(
+  fun updateCollectionById(
     @PathVariable id: String,
     @Valid @RequestBody
     collection: CollectionUpdateDto,
@@ -256,10 +268,11 @@ class SeriesCollectionController(
     } ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
   }
 
+  @Operation(summary = "Delete collection", tags = [OpenApiConfiguration.TagNames.COLLECTIONS])
   @DeleteMapping("{id}")
   @PreAuthorize("hasRole('ADMIN')")
   @ResponseStatus(HttpStatus.NO_CONTENT)
-  fun deleteOne(
+  fun deleteCollectionById(
     @PathVariable id: String,
   ) {
     collectionRepository.findByIdOrNull(id)?.let {
@@ -267,10 +280,11 @@ class SeriesCollectionController(
     } ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
   }
 
+  @Operation(summary = "List collection's series", tags = [OpenApiConfiguration.TagNames.COLLECTION_SERIES])
   @PageableWithoutSortAsQueryParam
   @AuthorsAsQueryParam
   @GetMapping("{id}/series")
-  fun getSeriesForCollection(
+  fun getSeriesByCollectionId(
     @PathVariable id: String,
     @AuthenticationPrincipal principal: KomgaPrincipal,
     @RequestParam(name = "library_id", required = false) libraryIds: List<String>?,

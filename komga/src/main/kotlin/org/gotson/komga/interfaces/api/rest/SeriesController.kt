@@ -44,10 +44,11 @@ import org.gotson.komga.domain.service.SeriesLifecycle
 import org.gotson.komga.infrastructure.image.ImageAnalyzer
 import org.gotson.komga.infrastructure.jooq.UnpagedSorted
 import org.gotson.komga.infrastructure.mediacontainer.ContentDetector
+import org.gotson.komga.infrastructure.openapi.AuthorsAsQueryParam
+import org.gotson.komga.infrastructure.openapi.OpenApiConfiguration
+import org.gotson.komga.infrastructure.openapi.PageableAsQueryParam
+import org.gotson.komga.infrastructure.openapi.PageableWithoutSortAsQueryParam
 import org.gotson.komga.infrastructure.security.KomgaPrincipal
-import org.gotson.komga.infrastructure.swagger.AuthorsAsQueryParam
-import org.gotson.komga.infrastructure.swagger.PageableAsQueryParam
-import org.gotson.komga.infrastructure.swagger.PageableWithoutSortAsQueryParam
 import org.gotson.komga.infrastructure.web.Authors
 import org.gotson.komga.infrastructure.web.DelimitedPair
 import org.gotson.komga.interfaces.api.ContentRestrictionChecker
@@ -119,6 +120,7 @@ class SeriesController(
   private val thumbnailsSeriesRepository: ThumbnailSeriesRepository,
   private val contentRestrictionChecker: ContentRestrictionChecker,
 ) {
+  @Operation(summary = "List series", description = "Use POST /api/v1/series/list instead. Deprecated since 1.19.0.", tags = [OpenApiConfiguration.TagNames.SERIES, OpenApiConfiguration.TagNames.DEPRECATED])
   @Deprecated("use /v1/series/list instead")
   @PageableAsQueryParam
   @AuthorsAsQueryParam
@@ -131,7 +133,7 @@ class SeriesController(
     ),
   )
   @GetMapping("v1/series")
-  fun getAllSeries(
+  fun getSeriesDeprecated(
     @AuthenticationPrincipal principal: KomgaPrincipal,
     @RequestParam(name = "search", required = false) searchTerm: String? = null,
     @Parameter(hidden = true)
@@ -221,9 +223,10 @@ class SeriesController(
       .map { it.restrictUrl(!principal.user.isAdmin) }
   }
 
+  @Operation(summary = "List series", tags = [OpenApiConfiguration.TagNames.SERIES])
   @PageableAsQueryParam
   @PostMapping("v1/series/list")
-  fun getSeriesList(
+  fun getSeries(
     @AuthenticationPrincipal principal: KomgaPrincipal,
     @RequestBody search: SeriesSearch,
     @RequestParam(name = "unpaged", required = false) unpaged: Boolean = false,
@@ -251,6 +254,7 @@ class SeriesController(
       .map { it.restrictUrl(!principal.user.isAdmin) }
   }
 
+  @Operation(summary = "List series groups", description = "Use POST /api/v1/series/list/alphabetical-groups instead. Deprecated since 1.19.0.", tags = [OpenApiConfiguration.TagNames.SERIES, OpenApiConfiguration.TagNames.DEPRECATED])
   @Deprecated("use /v1/series/list/alphabetical-groups instead")
   @AuthorsAsQueryParam
   @Parameters(
@@ -262,7 +266,7 @@ class SeriesController(
     ),
   )
   @GetMapping("v1/series/alphabetical-groups")
-  fun getAlphabeticalGroups(
+  fun getSeriesAlphabeticalGroupsDeprecated(
     @AuthenticationPrincipal principal: KomgaPrincipal,
     @RequestParam(name = "search", required = false) searchTerm: String?,
     @Parameter(hidden = true)
@@ -332,16 +336,17 @@ class SeriesController(
     return seriesDtoRepository.countByFirstCharacter(seriesSearch, SearchContext(principal.user))
   }
 
+  @Operation(summary = "List series groups", description = "List series grouped by the first character of their sort title.", tags = [OpenApiConfiguration.TagNames.SERIES])
   @PostMapping("v1/series/list/alphabetical-groups")
-  fun getSeriesListByAlphabeticalGroups(
+  fun getSeriesAlphabeticalGroups(
     @AuthenticationPrincipal principal: KomgaPrincipal,
     @RequestBody search: SeriesSearch,
   ): List<GroupCountDto> = seriesDtoRepository.countByFirstCharacter(search, SearchContext(principal.user))
 
-  @Operation(description = "Return recently added or updated series.")
+  @Operation(summary = "List latest series", description = "Return recently added or updated series.", tags = [OpenApiConfiguration.TagNames.SERIES])
   @PageableWithoutSortAsQueryParam
   @GetMapping("v1/series/latest")
-  fun getLatestSeries(
+  fun getSeriesLatest(
     @AuthenticationPrincipal principal: KomgaPrincipal,
     @RequestParam(name = "library_id", required = false) libraryIds: List<String>?,
     @RequestParam(name = "deleted", required = false) deleted: Boolean?,
@@ -377,10 +382,10 @@ class SeriesController(
       ).map { it.restrictUrl(!principal.user.isAdmin) }
   }
 
-  @Operation(description = "Return newly added series.")
+  @Operation(summary = "List new series", description = "Return newly added series.", tags = [OpenApiConfiguration.TagNames.SERIES])
   @PageableWithoutSortAsQueryParam
   @GetMapping("v1/series/new")
-  fun getNewSeries(
+  fun getSeriesNew(
     @AuthenticationPrincipal principal: KomgaPrincipal,
     @RequestParam(name = "library_id", required = false) libraryIds: List<String>? = null,
     @RequestParam(name = "deleted", required = false) deleted: Boolean? = null,
@@ -416,10 +421,10 @@ class SeriesController(
       ).map { it.restrictUrl(!principal.user.isAdmin) }
   }
 
-  @Operation(description = "Return recently updated series, but not newly added ones.")
+  @Operation(summary = "List updated series", description = "Return recently updated series, but not newly added ones.", tags = [OpenApiConfiguration.TagNames.SERIES])
   @PageableWithoutSortAsQueryParam
   @GetMapping("v1/series/updated")
-  fun getUpdatedSeries(
+  fun getSeriesUpdated(
     @AuthenticationPrincipal principal: KomgaPrincipal,
     @RequestParam(name = "library_id", required = false) libraryIds: List<String>? = null,
     @RequestParam(name = "deleted", required = false) deleted: Boolean? = null,
@@ -455,8 +460,9 @@ class SeriesController(
       ).map { it.restrictUrl(!principal.user.isAdmin) }
   }
 
+  @Operation(summary = "Get series details", tags = [OpenApiConfiguration.TagNames.SERIES])
   @GetMapping("v1/series/{seriesId}")
-  fun getOneSeries(
+  fun getSeriesById(
     @AuthenticationPrincipal principal: KomgaPrincipal,
     @PathVariable(name = "seriesId") id: String,
   ): SeriesDto =
@@ -465,9 +471,10 @@ class SeriesController(
       it.restrictUrl(!principal.user.isAdmin)
     } ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
 
+  @Operation(summary = "Get series' poster image", tags = [OpenApiConfiguration.TagNames.SERIES_POSTER])
   @ApiResponse(content = [Content(schema = Schema(type = "string", format = "binary"))])
   @GetMapping(value = ["v1/series/{seriesId}/thumbnail"], produces = [MediaType.IMAGE_JPEG_VALUE])
-  fun getSeriesDefaultThumbnail(
+  fun getSeriesThumbnail(
     @AuthenticationPrincipal principal: KomgaPrincipal,
     @PathVariable(name = "seriesId") seriesId: String,
   ): ByteArray {
@@ -477,6 +484,7 @@ class SeriesController(
       ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
   }
 
+  @Operation(summary = "Get series poster image", tags = [OpenApiConfiguration.TagNames.SERIES_POSTER])
   @ApiResponse(content = [Content(schema = Schema(type = "string", format = "binary"))])
   @GetMapping(value = ["v1/series/{seriesId}/thumbnails/{thumbnailId}"], produces = [MediaType.IMAGE_JPEG_VALUE])
   fun getSeriesThumbnailById(
@@ -490,6 +498,7 @@ class SeriesController(
       ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
   }
 
+  @Operation(summary = "List series posters", tags = [OpenApiConfiguration.TagNames.SERIES_POSTER])
   @GetMapping(value = ["v1/series/{seriesId}/thumbnails"], produces = [MediaType.APPLICATION_JSON_VALUE])
   fun getSeriesThumbnails(
     @AuthenticationPrincipal principal: KomgaPrincipal,
@@ -502,9 +511,10 @@ class SeriesController(
       .map { it.toDto() }
   }
 
+  @Operation(summary = "Add series poster", tags = [OpenApiConfiguration.TagNames.SERIES_POSTER])
   @PostMapping(value = ["v1/series/{seriesId}/thumbnails"], consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
   @PreAuthorize("hasRole('ADMIN')")
-  fun postUserUploadedSeriesThumbnail(
+  fun addUserUploadedSeriesThumbnail(
     @PathVariable(name = "seriesId") seriesId: String,
     @RequestParam("file") file: MultipartFile,
     @RequestParam("selected") selected: Boolean = true,
@@ -530,10 +540,11 @@ class SeriesController(
       ).toDto()
   }
 
+  @Operation(summary = "Mark series poster as selected", tags = [OpenApiConfiguration.TagNames.SERIES_POSTER])
   @PutMapping("v1/series/{seriesId}/thumbnails/{thumbnailId}/selected")
   @PreAuthorize("hasRole('ADMIN')")
   @ResponseStatus(HttpStatus.ACCEPTED)
-  fun postMarkSelectedSeriesThumbnail(
+  fun markSeriesThumbnailSelected(
     @PathVariable(name = "seriesId") seriesId: String,
     @PathVariable(name = "thumbnailId") thumbnailId: String,
   ) {
@@ -544,6 +555,7 @@ class SeriesController(
     } ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
   }
 
+  @Operation(summary = "Delete series poster", tags = [OpenApiConfiguration.TagNames.SERIES_POSTER])
   @DeleteMapping("v1/series/{seriesId}/thumbnails/{thumbnailId}")
   @PreAuthorize("hasRole('ADMIN')")
   @ResponseStatus(HttpStatus.ACCEPTED)
@@ -561,11 +573,12 @@ class SeriesController(
     } ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
   }
 
+  @Operation(summary = "List series' books", description = "Use POST /api/v1/books/list instead. Deprecated since 1.19.0.", tags = [OpenApiConfiguration.TagNames.SERIES, OpenApiConfiguration.TagNames.DEPRECATED])
   @Deprecated("use /v1/books/list instead")
   @PageableAsQueryParam
   @AuthorsAsQueryParam
   @GetMapping("v1/series/{seriesId}/books")
-  fun getAllBooksBySeries(
+  fun getBooksBySeriesId(
     @AuthenticationPrincipal principal: KomgaPrincipal,
     @PathVariable(name = "seriesId") seriesId: String,
     @RequestParam(name = "media_status", required = false) mediaStatus: List<Media.Status>? = null,
@@ -615,8 +628,9 @@ class SeriesController(
       ).map { it.restrictUrl(!principal.user.isAdmin) }
   }
 
+  @Operation(summary = "List series' collections", tags = [OpenApiConfiguration.TagNames.SERIES])
   @GetMapping("v1/series/{seriesId}/collections")
-  fun getAllCollectionsBySeries(
+  fun getCollectionsBySeriesId(
     @AuthenticationPrincipal principal: KomgaPrincipal,
     @PathVariable(name = "seriesId") seriesId: String,
   ): List<CollectionDto> {
@@ -627,19 +641,21 @@ class SeriesController(
       .map { it.toDto() }
   }
 
+  @Operation(summary = "Analyze series", tags = [OpenApiConfiguration.TagNames.SERIES])
   @PostMapping("v1/series/{seriesId}/analyze")
   @PreAuthorize("hasRole('ADMIN')")
   @ResponseStatus(HttpStatus.ACCEPTED)
-  fun analyze(
+  fun seriesAnalyze(
     @PathVariable seriesId: String,
   ) {
     taskEmitter.analyzeBook(bookRepository.findAllBySeriesId(seriesId), HIGH_PRIORITY)
   }
 
+  @Operation(summary = "Refresh series metadata", tags = [OpenApiConfiguration.TagNames.SERIES])
   @PostMapping("v1/series/{seriesId}/metadata/refresh")
   @PreAuthorize("hasRole('ADMIN')")
   @ResponseStatus(HttpStatus.ACCEPTED)
-  fun refreshMetadata(
+  fun seriesRefreshMetadata(
     @PathVariable seriesId: String,
   ) {
     val books = bookRepository.findAllBySeriesId(seriesId)
@@ -648,10 +664,11 @@ class SeriesController(
     taskEmitter.refreshSeriesLocalArtwork(seriesId, priority = HIGH_PRIORITY)
   }
 
+  @Operation(summary = "Update series metadata", tags = [OpenApiConfiguration.TagNames.SERIES])
   @PatchMapping("v1/series/{seriesId}/metadata")
   @PreAuthorize("hasRole('ADMIN')")
   @ResponseStatus(HttpStatus.NO_CONTENT)
-  fun updateMetadata(
+  fun updateSeriesMetadata(
     @PathVariable seriesId: String,
     @Parameter(description = "Metadata fields to update. Set a field to null to unset the metadata. You can omit fields you don't want to update.")
     @Valid
@@ -722,10 +739,10 @@ class SeriesController(
     seriesRepository.findByIdOrNull(seriesId)?.let { eventPublisher.publishEvent(DomainEvent.SeriesUpdated(it)) }
   } ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
 
-  @Operation(description = "Mark all book for series as read")
+  @Operation(summary = "Mark series as read", description = "Mark all book for series as read", tags = [OpenApiConfiguration.TagNames.SERIES])
   @PostMapping("v1/series/{seriesId}/read-progress")
   @ResponseStatus(HttpStatus.NO_CONTENT)
-  fun markAsRead(
+  fun markSeriesAsRead(
     @PathVariable seriesId: String,
     @AuthenticationPrincipal principal: KomgaPrincipal,
   ) {
@@ -734,10 +751,10 @@ class SeriesController(
     seriesLifecycle.markReadProgressCompleted(seriesId, principal.user)
   }
 
-  @Operation(description = "Mark all book for series as unread")
+  @Operation(summary = "Mark series as unread", description = "Mark all book for series as unread", tags = [OpenApiConfiguration.TagNames.SERIES])
   @DeleteMapping("v1/series/{seriesId}/read-progress")
   @ResponseStatus(HttpStatus.NO_CONTENT)
-  fun markAsUnread(
+  fun markSeriesAsUnread(
     @PathVariable seriesId: String,
     @AuthenticationPrincipal principal: KomgaPrincipal,
   ) {
@@ -746,8 +763,9 @@ class SeriesController(
     seriesLifecycle.deleteReadProgress(seriesId, principal.user)
   }
 
+  @Operation(summary = "Get series read progress (Mihon)", description = "Mihon specific, due to how read progress is handled in Mihon.", tags = [OpenApiConfiguration.TagNames.MIHON])
   @GetMapping("v2/series/{seriesId}/read-progress/tachiyomi")
-  fun getReadProgressTachiyomiV2(
+  fun getMihonReadProgressBySeriesId(
     @PathVariable seriesId: String,
     @AuthenticationPrincipal principal: KomgaPrincipal,
   ): TachiyomiReadProgressV2Dto {
@@ -756,9 +774,10 @@ class SeriesController(
     return readProgressDtoRepository.findProgressV2BySeries(seriesId, principal.user.id)
   }
 
+  @Operation(summary = "Update series read progress (Mihon)", description = "Mihon specific, due to how read progress is handled in Mihon.", tags = [OpenApiConfiguration.TagNames.MIHON])
   @PutMapping("v2/series/{seriesId}/read-progress/tachiyomi")
   @ResponseStatus(HttpStatus.NO_CONTENT)
-  fun markReadProgressTachiyomiV2(
+  fun updateMihonReadProgressBySeriesId(
     @PathVariable seriesId: String,
     @RequestBody readProgress: TachiyomiReadProgressUpdateV2Dto,
     @AuthenticationPrincipal principal: KomgaPrincipal,
@@ -778,9 +797,10 @@ class SeriesController(
       }
   }
 
+  @Operation(summary = "Download series", description = "Download the whole series as a ZIP file.", tags = [OpenApiConfiguration.TagNames.SERIES])
   @GetMapping("v1/series/{seriesId}/file", produces = [MediaType.APPLICATION_OCTET_STREAM_VALUE])
   @PreAuthorize("hasRole('FILE_DOWNLOAD')")
-  fun getSeriesFile(
+  fun downloadSeriesAsZip(
     @AuthenticationPrincipal principal: KomgaPrincipal,
     @PathVariable seriesId: String,
   ): ResponseEntity<StreamingResponseBody> {
@@ -825,10 +845,11 @@ class SeriesController(
       .body(streamingResponse)
   }
 
+  @Operation(summary = "Delete series files", description = "Delete all of the series' books files on disk.", tags = [OpenApiConfiguration.TagNames.SERIES])
   @DeleteMapping("v1/series/{seriesId}/file")
   @PreAuthorize("hasRole('ADMIN')")
   @ResponseStatus(HttpStatus.ACCEPTED)
-  fun deleteSeries(
+  fun deleteSeriesFile(
     @PathVariable seriesId: String,
   ) {
     taskEmitter.deleteSeries(

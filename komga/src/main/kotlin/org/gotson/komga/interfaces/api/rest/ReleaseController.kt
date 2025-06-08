@@ -1,6 +1,9 @@
 package org.gotson.komga.interfaces.api.rest
 
 import com.github.benmanes.caffeine.cache.Caffeine
+import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.tags.Tag
+import org.gotson.komga.infrastructure.openapi.OpenApiConfiguration
 import org.gotson.komga.infrastructure.security.KomgaPrincipal
 import org.gotson.komga.interfaces.api.rest.dto.GithubReleaseDto
 import org.gotson.komga.interfaces.api.rest.dto.ReleaseDto
@@ -21,6 +24,7 @@ private const val GITHUB_API = "https://api.github.com/repos/gotson/komga/releas
 @RestController
 @PreAuthorize("hasRole('ADMIN')")
 @RequestMapping("api/v1/releases", produces = [MediaType.APPLICATION_JSON_VALUE])
+@Tag(name = OpenApiConfiguration.TagNames.RELEASES)
 class ReleaseController(
   webClientBuilder: WebClient.Builder,
 ) {
@@ -34,7 +38,8 @@ class ReleaseController(
 
   @GetMapping
   @PreAuthorize("hasRole('ADMIN')")
-  fun getAnnouncements(
+  @Operation(summary = "List releases")
+  fun getReleases(
     @AuthenticationPrincipal principal: KomgaPrincipal,
   ): List<ReleaseDto> =
     cache

@@ -2,6 +2,8 @@ package org.gotson.komga.interfaces.api.rest
 
 import com.jakewharton.byteunits.BinaryByteUnit
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.tags.Tag
 import org.gotson.komga.domain.model.CodedException
 import org.gotson.komga.domain.model.MediaNotReadyException
 import org.gotson.komga.domain.model.MediaProfile
@@ -9,6 +11,7 @@ import org.gotson.komga.domain.model.TransientBook
 import org.gotson.komga.domain.persistence.TransientBookRepository
 import org.gotson.komga.domain.service.BookAnalyzer
 import org.gotson.komga.domain.service.TransientBookLifecycle
+import org.gotson.komga.infrastructure.openapi.OpenApiConfiguration
 import org.gotson.komga.infrastructure.web.getMediaTypeOrDefault
 import org.gotson.komga.infrastructure.web.toFilePath
 import org.gotson.komga.interfaces.api.rest.dto.PageDto
@@ -31,13 +34,15 @@ private val logger = KotlinLogging.logger {}
 @RestController
 @RequestMapping("api/v1/transient-books", produces = [MediaType.APPLICATION_JSON_VALUE])
 @PreAuthorize("hasRole('ADMIN')")
+@Tag(name = OpenApiConfiguration.TagNames.BOOK_IMPORT)
 class TransientBooksController(
   private val transientBookLifecycle: TransientBookLifecycle,
   private val transientBookRepository: TransientBookRepository,
   private val bookAnalyzer: BookAnalyzer,
 ) {
   @PostMapping
-  fun scanForTransientBooks(
+  @Operation(summary = "Scan folder for transient books", description = "Scan provided folder for transient books.")
+  fun scanTransientBooks(
     @RequestBody request: ScanRequestDto,
   ): List<TransientBookDto> =
     try {
@@ -50,7 +55,8 @@ class TransientBooksController(
     }
 
   @PostMapping("{id}/analyze")
-  fun analyze(
+  @Operation(summary = "Analyze transient book")
+  fun analyzeTransientBook(
     @PathVariable id: String,
   ): TransientBookDto =
     transientBookRepository.findByIdOrNull(id)?.let {
@@ -61,7 +67,8 @@ class TransientBooksController(
     value = ["{id}/pages/{pageNumber}"],
     produces = [MediaType.ALL_VALUE],
   )
-  fun getSourcePage(
+  @Operation(summary = "Get transient book page")
+  fun getPageByTransientBookId(
     @PathVariable id: String,
     @PathVariable pageNumber: Int,
   ): ResponseEntity<ByteArray> =

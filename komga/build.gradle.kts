@@ -1,4 +1,3 @@
-
 import nu.studer.gradle.jooq.JooqGenerate
 import org.apache.tools.ant.taskdefs.condition.Os
 import org.flywaydb.gradle.task.FlywayMigrateTask
@@ -145,6 +144,7 @@ tasks {
       freeCompilerArgs =
         listOf(
           "-Xjsr305=strict",
+          "-Xemit-jvm-type-annotations",
           "-opt-in=kotlin.time.ExperimentalTime",
         )
     }
@@ -375,7 +375,7 @@ tasks.compileKotlin {
 openApi {
   outputDir = file("$projectDir/docs")
   customBootRun {
-    args.add("--spring.profiles.active=claim")
+    args.add("--spring.profiles.active=claim,generate-openapi")
     args.add("--server.port=8080")
   }
 }
